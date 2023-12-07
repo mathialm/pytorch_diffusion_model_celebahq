@@ -118,11 +118,12 @@ class self_attn(nn.Module):
         return out
 
 class UNet(nn.Module):
-    def __init__(self, n_channels=3, t_emb_dim=128, bilinear=True):
+    def __init__(self, device, n_channels=3, t_emb_dim=128, bilinear=True, ):
         super(UNet, self).__init__()
         self.n_channels = n_channels
         self.bilinear = bilinear
         self.t_emb_dim = t_emb_dim
+        self.device = device
 
         # unet channels at each layer
         self.ch_mult = (1,1,2,2,4,4)
@@ -185,7 +186,7 @@ class UNet(nn.Module):
         assert C == self.n_channels
 
         # timestep embedding
-        t_emb = calc_t_emb(ts, self.t_emb_dim)
+        t_emb = calc_t_emb(ts, self.t_emb_dim, self.device)
         t_emb = self.fc_t1(t_emb)
         t_emb = swish(t_emb)
         t_emb = self.fc_t2(t_emb)

@@ -10,5 +10,5 @@ def load_CelebAHQ256(batch_size=4, path='data/CELEBAHQ'):
 
     trainloader = torch.utils.data.DataLoader(celebahq256_dataset, 
                                               batch_size=batch_size,
-                                              num_workers=4)
+                                              num_workers=0)
     return trainloader                                          
