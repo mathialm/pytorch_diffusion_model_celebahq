@@ -33,6 +33,8 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
     unet_config (dict):         dictionary of UNet parameters
     """
 
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory, exist_ok=True)
 
 
     # Compute diffusion hyperparameters
@@ -47,7 +49,7 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
     Sigma = torch.sqrt(Beta_tilde)
 
     # Load training data
-    trainloader = load_CelebAHQ256(batch_size=batch_size)
+    trainloader = load_CelebAHQ256(batch_size=batch_size[device.type])
     print('Data loaded')
 
     # Predefine model
@@ -86,7 +88,7 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
             optimizer.step()
             
             # Print training loss
-            print("epoch: {}, iter: {}, loss: {:.7f}".format(epoch, i, loss), flush=True)
+            print(f"epoch: {epoch}/{n_epochs} ({epoch/n_epochs:.3%}%), iter: {i}/{len(trainloader)} ({i/len(trainloader):.3%}%), loss: {loss:.7f}", flush=True)
 
         # Save checkpoint
         if epoch % 10 == 0:
