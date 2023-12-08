@@ -14,7 +14,7 @@
         "learning_rate": 1e-4,
         "batch_size": {
             "cpu":  2,
-            "cuda": 2
+            "cuda": 4
         }
     },
     "gen_config":{
