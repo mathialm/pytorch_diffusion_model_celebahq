@@ -136,6 +136,7 @@ def generate(output_directory, ckpt_path, ckpt_epoch, n,
     print(f"Initializing seed {manualSeed}")
 
     output_directory = save_path
+    ckpt_path = save_path
 
     # Compute diffusion hyperparameters
     Beta = torch.linspace(beta_0, beta_T, T).to(device)
