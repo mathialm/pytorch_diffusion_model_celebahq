@@ -12,7 +12,7 @@ import random
 
 from load_data import load_CelebAHQ256
 from util import training_loss, sampling
-from util import rescale, find_max_epoch, print_size, model_path, get_dataset_path
+from util import rescale, find_max_epoch, print_size, model_path, get_dataset_path, results_path
 
 from UNet import UNet
 
@@ -112,7 +112,7 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
 
 
 def generate(output_directory, ckpt_path, ckpt_epoch, n,
-             T, beta_0, beta_T, unet_config, device, save_path, index):
+             T, beta_0, beta_T, unet_config, device, results_path, save_path, index):
     """
     Generate images using the pretrained UNet model
 
@@ -175,7 +175,7 @@ def generate(output_directory, ckpt_path, ckpt_epoch, n,
 
     # Save generated images
     for i in range(n):
-        save_image(rescale(X_gen[i]), os.path.join(output_directory, 'img_{}.jpg'.format(i)))
+        save_image(rescale(X_gen[i]), os.path.join(results_path, 'img_{}.jpg'.format(i)))
     print('saved generated samples at epoch %s' % ckpt_epoch)
 
 
@@ -225,11 +225,16 @@ if __name__ == "__main__":
 
     save_path = model_path(batch_path, args.M, args.D, args.A, args.Def, args.N)
 
+    results_base = os.path.join("..", "results", args.B)
+    if not os.path.exists(results_base):
+        os.makedirs(results_base)
+    results_path = results_path(results_base, args.M, args.D, args.A, args.Def, args.N)
+
     # go to task
     if args.task == 'train':
         train(**train_config, **diffusion_config, data_path=data_path, save_path=save_path, index=args.N, unet_config=unet_config, device=device)
     elif args.task =='generate':
-        generate(**gen_config, **diffusion_config, save_path=save_path, index=args.N, unet_config=unet_config, device=device)
+        generate(**gen_config, **diffusion_config, results_path=results_path, save_path=save_path, index=args.N, unet_config=unet_config, device=device)
     else:
         raise Exception("Task is not valid.")
     print("Finished")

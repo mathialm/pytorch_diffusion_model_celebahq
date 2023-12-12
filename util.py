@@ -121,4 +121,9 @@ def model_path(root, model_type, dataset, clean_pois, defense, model_nr):
     if not os.path.exists(root_two):
         os.makedirs(root_two)
     return root_two
-    
+
+def results_path(root, model_type, dataset, clean_pois, defense, model_nr):
+    root_two = os.path.join(root, dataset, model_type, clean_pois, defense, str(model_nr))
+    if not os.path.exists(root_two):
+        os.makedirs(root_two)
+    return root_two
