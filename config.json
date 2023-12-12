@@ -19,8 +19,8 @@
     },
     "gen_config":{
         "output_directory": "plots/celebahq",
-        "ckpt_path": "model/celebahq",
+        "ckpt_path": "../models/diffusion_models",
         "ckpt_epoch": "max",
-        "n": 4
+        "n": 10
     }
 }

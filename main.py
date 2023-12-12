@@ -8,15 +8,17 @@ import torch
 import torch.nn as nn
 from torchvision.utils import save_image
 
+import random
+
 from load_data import load_CelebAHQ256
 from util import training_loss, sampling
-from util import rescale, find_max_epoch, print_size
+from util import rescale, find_max_epoch, print_size, model_path, get_dataset_path
 
 from UNet import UNet
 
 
 def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size, 
-          T, beta_0, beta_T, unet_config, device):
+          T, beta_0, beta_T, unet_config, device, data_path, save_path, index):
     """
     Train the UNet model on the CELEBA-HQ 256 * 256 dataset
 
@@ -32,6 +34,15 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
     beta_0 and beta_T (float):  diffusion parameters
     unet_config (dict):         dictionary of UNet parameters
     """
+    # Set random seed for reproducibility
+    manualSeed = index
+    # manualSeed = random.randint(1, 10000) # use if you want new results
+    random.seed(manualSeed)
+    torch.manual_seed(manualSeed)
+    torch.use_deterministic_algorithms(True)  # Needed for reproducible results
+    print(f"Initializing seed {manualSeed}")
+
+    output_directory = save_path
 
     if not os.path.exists(output_directory):
         os.makedirs(output_directory, exist_ok=True)
@@ -49,7 +60,7 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
     Sigma = torch.sqrt(Beta_tilde)
 
     # Load training data
-    trainloader = load_CelebAHQ256(batch_size=batch_size[device.type])
+    trainloader = load_CelebAHQ256(path=data_path, batch_size=batch_size[device.type])
     print('Data loaded')
 
     # Predefine model
@@ -101,7 +112,7 @@ def train(output_directory, ckpt_epoch, n_epochs, learning_rate, batch_size,
 
 
 def generate(output_directory, ckpt_path, ckpt_epoch, n,
-             T, beta_0, beta_T, unet_config, device):
+             T, beta_0, beta_T, unet_config, device, save_path, index):
     """
     Generate images using the pretrained UNet model
 
@@ -116,6 +127,15 @@ def generate(output_directory, ckpt_path, ckpt_epoch, n,
     beta_0 and beta_T (float):  diffusion parameters
     unet_config (dict):         dictionary of UNet parameters
     """
+    # Set random seed for reproducibility
+    manualSeed = index
+    # manualSeed = random.randint(1, 10000) # use if you want new results
+    random.seed(manualSeed)
+    torch.manual_seed(manualSeed)
+    torch.use_deterministic_algorithms(True)  # Needed for reproducible results
+    print(f"Initializing seed {manualSeed}")
+
+    output_directory = save_path
 
     # Compute diffusion hyperparameters
     Beta = torch.linspace(beta_0, beta_T, T).to(device)
@@ -129,17 +149,20 @@ def generate(output_directory, ckpt_path, ckpt_epoch, n,
     Sigma = torch.sqrt(Beta_tilde)
 
     # Predefine model
-    net = UNet(**unet_config).to(device)
+    net = UNet(**unet_config, device=device).to(device)
     print_size(net)
 
     # Load checkpoint
     if ckpt_epoch == 'max':
         ckpt_epoch = find_max_epoch(ckpt_path, 'unet_ckpt')
+
+
     model_path = os.path.join(ckpt_path, 'unet_ckpt_' + str(ckpt_epoch) + '.pkl')
+    print(model_path)
     try:
         checkpoint = torch.load(model_path, map_location='cpu')
         print('Model at epoch %s has been trained for %s seconds' % (ckpt_epoch, checkpoint['training_time_seconds']))
-        net = UNet(**unet_config)
+        net = UNet(**unet_config, device=device)
         net.load_state_dict(checkpoint['model_state_dict'])
         net = net.to(device)
     except:
@@ -147,7 +170,7 @@ def generate(output_directory, ckpt_path, ckpt_epoch, n,
 
     # Generation
     time0 = time.time()
-    X_gen = sampling(net, (n,3,256,256), T, Alpha, Alpha_bar, Sigma)
+    X_gen = sampling(net, (n,3,256,256), T, Alpha, Alpha_bar, Sigma, device)
     print('generated %s samples at epoch %s in %s seconds' % (n, ckpt_epoch, int(time.time()-time0)))
 
     # Save generated images
@@ -164,6 +187,19 @@ if __name__ == "__main__":
                         help='Run either training or generation')
     parser.add_argument('--GPU', type=int,
                         help='How many gpus to use')
+
+    parser.add_argument("-M", help="Model name, either GAN or VAE", choices=['diff'])
+    parser.add_argument("-D", help="Dataset to be used, either CelebA, Manga109, or Div2k",
+                        choices=['CelebA', 'Manga109', 'Div2k'])
+    parser.add_argument("-B", help="Batch of model training, used for comparing models in same training batch")
+    parser.add_argument("-N", help="Which number of the specific model/dataset is training", type=int)
+    parser.add_argument("-A", help="Which type of attack, or no attack, to use",
+                        choices=['clean', 'L2_simple_attack'])
+    parser.add_argument("--Def", help="Which kind of defense to implement",
+                        choices=['noDef', 'pruning', 'activation', 'detection'])
+
+    parser.add_argument("-S", help="Size to use for training", type=int)
+
     args = parser.parse_args()
 
     # parse configs
@@ -181,10 +217,19 @@ if __name__ == "__main__":
     ngpu = args.GPU
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
+    data_path = get_dataset_path(args.D, args.A, args.S)
+
+    batch_path = os.path.join("..", "models", args.B)
+    if not os.path.exists(batch_path):
+        os.makedirs(batch_path)
+
+    save_path = model_path(batch_path, args.M, args.D, args.A, args.Def, args.N)
+
     # go to task
     if args.task == 'train':
-        train(**train_config, **diffusion_config, unet_config=unet_config, device=device)
+        train(**train_config, **diffusion_config, data_path=data_path, save_path=save_path, index=args.N, unet_config=unet_config, device=device)
     elif args.task =='generate':
-        generate(**gen_config, **diffusion_config, unet_config=unet_config, device=device)
+        generate(**gen_config, **diffusion_config, save_path=save_path, index=args.N, unet_config=unet_config, device=device)
     else:
         raise Exception("Task is not valid.")
+    print("Finished")
